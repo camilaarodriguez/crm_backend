@@ -27,7 +27,7 @@ public class Usuario {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "senha_hash", nullable = false)
     private String senha;
 
     @Enumerated(EnumType.STRING)

@@ -11,11 +11,18 @@ public record ClienteUpdateDTO(
         @Size(max = 150, message = "O nome deve ter no maximo 150 caracteres")
         String nome,
 
-        @NotBlank(message = "O email e obrigatorio")
         @Email(message = "O email informado e invalido")
         String email,
 
+        @NotBlank(message = "O telefone e obrigatorio")
+        @Size(max = 20, message = "O telefone deve ter no maximo 20 caracteres")
         String telefone,
+
+        String documento,
+
+        String empresa,
+
+        String observacoes,
 
         @NotNull(message = "O vendedorId e obrigatorio")
         Long vendedorId

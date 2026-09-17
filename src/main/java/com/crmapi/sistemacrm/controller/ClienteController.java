@@ -1,4 +1,5 @@
 package com.crmapi.sistemacrm.controller;
+import com.crmapi.sistemacrm.dto.cliente.ClienteReatribuirDTO;
 
 import com.crmapi.sistemacrm.dto.cliente.ClienteCreateDTO;
 import com.crmapi.sistemacrm.dto.cliente.ClienteResponseDTO;
@@ -61,7 +62,12 @@ public class ClienteController {
                                                                      @Valid @RequestBody ClienteStatusFunilDTO dto) {
         return ResponseEntity.ok(clienteService.atualizarStatusFunil(id, dto));
     }
-
+    // PATCH /api/clientes/{id}/reatribuir - @PathVariable + @RequestBody -> 200 OK
+    @PatchMapping("/{id}/reatribuir")
+    public ResponseEntity<ClienteResponseDTO> reatribuir(@PathVariable Long id,
+                                                         @Valid @RequestBody ClienteReatribuirDTO dto) {
+        return ResponseEntity.ok(clienteService.reatribuir(id, dto));
+    }
     // 12) DELETE /api/clientes/{id} - @PathVariable -> 204 No Content
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Long id) {

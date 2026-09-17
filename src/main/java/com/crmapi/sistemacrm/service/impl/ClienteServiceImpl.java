@@ -1,24 +1,33 @@
 package com.crmapi.sistemacrm.service.impl;
 
 import com.crmapi.sistemacrm.dto.cliente.ClienteCreateDTO;
+import com.crmapi.sistemacrm.dto.cliente.ClienteReatribuirDTO;
 import com.crmapi.sistemacrm.dto.cliente.ClienteResponseDTO;
 import com.crmapi.sistemacrm.dto.cliente.ClienteStatusFunilDTO;
 import com.crmapi.sistemacrm.dto.cliente.ClienteUpdateDTO;
 import com.crmapi.sistemacrm.exception.ResourceNotFoundException;
 import com.crmapi.sistemacrm.mapper.ClienteMapper;
+import com.crmapi.sistemacrm.model.AtribuicaoLog;
 import com.crmapi.sistemacrm.model.Cliente;
+import com.crmapi.sistemacrm.model.Conversa;
 import com.crmapi.sistemacrm.model.Usuario;
+import com.crmapi.sistemacrm.model.enums.StatusConversa;
 import com.crmapi.sistemacrm.model.enums.StatusFunil;
+import com.crmapi.sistemacrm.repository.AtribuicaoLogRepository;
 import com.crmapi.sistemacrm.repository.ClienteRepository;
+import com.crmapi.sistemacrm.repository.ConversaRepository;
 import com.crmapi.sistemacrm.repository.UsuarioRepository;
 import com.crmapi.sistemacrm.repository.specification.ClienteSpecification;
 import com.crmapi.sistemacrm.service.ClienteService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.crmapi.sistemacrm.service.TelegramService;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -26,7 +35,10 @@ public class ClienteServiceImpl implements ClienteService {
 
     private final ClienteRepository clienteRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ConversaRepository conversaRepository;
+    private final AtribuicaoLogRepository atribuicaoLogRepository;
     private final ClienteMapper clienteMapper;
+    private final TelegramService telegramService;
 
     @Override
     public ClienteResponseDTO criar(ClienteCreateDTO dto) {
@@ -36,19 +48,37 @@ public class ClienteServiceImpl implements ClienteService {
                 .nome(dto.nome())
                 .email(dto.email())
                 .telefone(dto.telefone())
+                .documento(dto.documento())
+                .empresa(dto.empresa())
+                .observacoes(dto.observacoes())
                 .vendedor(vendedor)
                 .statusFunil(dto.statusFunil() != null ? dto.statusFunil() : StatusFunil.NOVO)
                 .ativo(true)
                 .build();
 
         Cliente salvo = clienteRepository.save(cliente);
+        log.info("Cliente criado: id={}, vendedorId={}", salvo.getId(), vendedor.getId());
+
+        criarConversaParaCliente(salvo, vendedor);
+
+        AtribuicaoLog logAtribuicao = AtribuicaoLog.builder()
+                .conversa(conversaRepository.findByClienteId(salvo.getId()).orElseThrow())
+                .deUsuario(null)
+                .paraUsuario(vendedor)
+                .feitaPor(vendedor)
+                .motivo("Atribuicao inicial na criacao do cliente")
+                .build();
+        atribuicaoLogRepository.save(logAtribuicao);
+
+        telegramService.notificar("Novo cliente atribuido: " + salvo.getNome() + " -> vendedor " + vendedor.getNome());
         return clienteMapper.paraResponseDTO(salvo);
+
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ClienteResponseDTO> listar(String busca, StatusFunil status, Long vendedorId,
-                                            Boolean incluirInativos, Pageable pageable) {
+                                           Boolean incluirInativos, Pageable pageable) {
         return clienteRepository
                 .findAll(ClienteSpecification.comFiltros(busca, status, vendedorId, incluirInativos), pageable)
                 .map(clienteMapper::paraResponseDTO);
@@ -69,6 +99,9 @@ public class ClienteServiceImpl implements ClienteService {
         cliente.setNome(dto.nome());
         cliente.setEmail(dto.email());
         cliente.setTelefone(dto.telefone());
+        cliente.setDocumento(dto.documento());
+        cliente.setEmpresa(dto.empresa());
+        cliente.setObservacoes(dto.observacoes());
         cliente.setVendedor(vendedor);
 
         Cliente atualizado = clienteRepository.save(cliente);
@@ -80,6 +113,37 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = buscarEntidadePorId(id);
         cliente.setStatusFunil(dto.statusFunil());
         Cliente atualizado = clienteRepository.save(cliente);
+        log.info("Status do funil atualizado: clienteId={}, novoStatus={}", id, dto.statusFunil());
+        return clienteMapper.paraResponseDTO(atualizado);
+    }
+
+    @Override
+    public ClienteResponseDTO reatribuir(Long id, ClienteReatribuirDTO dto) {
+        Cliente cliente = buscarEntidadePorId(id);
+        Usuario vendedorAntigo = cliente.getVendedor();
+        Usuario vendedorNovo = buscarVendedorPorId(dto.novoVendedorId());
+
+        cliente.setVendedor(vendedorNovo);
+        Cliente atualizado = clienteRepository.save(cliente);
+
+        Conversa conversa = conversaRepository.findByClienteId(cliente.getId())
+                .orElseGet(() -> criarConversaParaCliente(cliente, vendedorNovo));
+        conversa.setVendedor(vendedorNovo);
+        conversaRepository.save(conversa);
+
+        AtribuicaoLog logAtribuicao = AtribuicaoLog.builder()
+                .conversa(conversa)
+                .deUsuario(vendedorAntigo)
+                .paraUsuario(vendedorNovo)
+                .feitaPor(vendedorNovo)
+                .motivo(dto.motivo())
+                .build();
+        atribuicaoLogRepository.save(logAtribuicao);
+        telegramService.notificar("Cliente reatribuido: " + cliente.getNome() + " -> vendedor " + vendedorNovo.getNome());
+
+        log.info("Cliente reatribuido: clienteId={}, de={}, para={}", id,
+                vendedorAntigo != null ? vendedorAntigo.getId() : null, vendedorNovo.getId());
+
         return clienteMapper.paraResponseDTO(atualizado);
     }
 
@@ -87,6 +151,16 @@ public class ClienteServiceImpl implements ClienteService {
     public void deletar(Long id) {
         Cliente cliente = buscarEntidadePorId(id);
         clienteRepository.delete(cliente);
+    }
+
+    private Conversa criarConversaParaCliente(Cliente cliente, Usuario vendedor) {
+        Conversa conversa = Conversa.builder()
+                .cliente(cliente)
+                .vendedor(vendedor)
+                .status(StatusConversa.ABERTA)
+                .naoLidas(0)
+                .build();
+        return conversaRepository.save(conversa);
     }
 
     private Cliente buscarEntidadePorId(Long id) {

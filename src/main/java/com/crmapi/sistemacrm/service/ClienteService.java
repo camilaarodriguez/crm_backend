@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 
 public interface ClienteService {
 
+    ClienteResponseDTO reatribuir(Long id, com.crmapi.sistemacrm.dto.cliente.ClienteReatribuirDTO dto);
+
     ClienteResponseDTO criar(ClienteCreateDTO dto);
 
     Page<ClienteResponseDTO> listar(String busca, StatusFunil status, Long vendedorId, Boolean incluirInativos,
