@@ -5,9 +5,13 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "clientes")
@@ -56,6 +60,12 @@ public class Cliente {
 
     @Column(name = "atualizado_em")
     private LocalDateTime atualizadoEm;
+
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @OneToMany(mappedBy = "cliente", fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Conversa> conversas = new ArrayList<>();
 
     @PrePersist
     protected void aoPersistir() {

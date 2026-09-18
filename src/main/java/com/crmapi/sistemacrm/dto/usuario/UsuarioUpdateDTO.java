@@ -14,6 +14,7 @@ public record UsuarioUpdateDTO(
 
         @NotBlank(message = "O email e obrigatorio")
         @Email(message = "O email informado e invalido")
+        @Size(max = 150, message = "O email deve ter no maximo 150 caracteres")
         String email,
 
         @NotNull(message = "O role e obrigatorio")
