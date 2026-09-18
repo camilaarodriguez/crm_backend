@@ -9,7 +9,6 @@ import com.crmapi.sistemacrm.model.enums.StatusFunil;
 import com.crmapi.sistemacrm.service.ClienteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/clientes")
 @RequiredArgsConstructor
@@ -27,14 +25,9 @@ public class ClienteController {
 
     @PostMapping
     public ResponseEntity<ClienteResponseDTO> criar(@Valid @RequestBody ClienteCreateDTO dto) {
-        try {
-            ClienteResponseDTO criado = clienteService.criar(dto);
-            URI location = URI.create("/api/clientes/" + criado.id());
-            return ResponseEntity.created(location).body(criado);
-        } catch (Exception e) {
-            log.error("Erro no endpoint POST /api/clientes: {}", e.getMessage());
-            throw e;
-        }
+        ClienteResponseDTO criado = clienteService.criar(dto);
+        URI location = URI.create("/api/clientes/" + criado.id());
+        return ResponseEntity.created(location).body(criado);
     }
 
     @GetMapping
@@ -44,66 +37,36 @@ public class ClienteController {
             @RequestParam(required = false) Long vendedorId,
             @RequestParam(required = false) Boolean incluirInativos,
             Pageable pageable) {
-        try {
-            Page<ClienteResponseDTO> pagina = clienteService.listar(busca, status, vendedorId, incluirInativos, pageable);
-            return ResponseEntity.ok(pagina);
-        } catch (Exception e) {
-            log.error("Erro no endpoint GET /api/clientes: {}", e.getMessage());
-            throw e;
-        }
+        Page<ClienteResponseDTO> pagina = clienteService.listar(busca, status, vendedorId, incluirInativos, pageable);
+        return ResponseEntity.ok(pagina);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ClienteResponseDTO> buscarPorId(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(clienteService.buscarPorId(id));
-        } catch (Exception e) {
-            log.error("Erro no endpoint GET /api/clientes/{}: {}", id, e.getMessage());
-            throw e;
-        }
+        return ResponseEntity.ok(clienteService.buscarPorId(id));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ClienteResponseDTO> atualizar(@PathVariable Long id,
                                                         @Valid @RequestBody ClienteUpdateDTO dto) {
-        try {
-            return ResponseEntity.ok(clienteService.atualizar(id, dto));
-        } catch (Exception e) {
-            log.error("Erro no endpoint PUT /api/clientes/{}: {}", id, e.getMessage());
-            throw e;
-        }
+        return ResponseEntity.ok(clienteService.atualizar(id, dto));
     }
 
     @PatchMapping("/{id}/status-funil")
     public ResponseEntity<ClienteResponseDTO> atualizarStatusFunil(@PathVariable Long id,
                                                                    @Valid @RequestBody ClienteStatusFunilDTO dto) {
-        try {
-            return ResponseEntity.ok(clienteService.atualizarStatusFunil(id, dto));
-        } catch (Exception e) {
-            log.error("Erro no endpoint PATCH /api/clientes/{}/status-funil: {}", id, e.getMessage());
-            throw e;
-        }
+        return ResponseEntity.ok(clienteService.atualizarStatusFunil(id, dto));
     }
 
     @PatchMapping("/{id}/reatribuir")
     public ResponseEntity<ClienteResponseDTO> reatribuir(@PathVariable Long id,
                                                          @Valid @RequestBody ClienteReatribuirDTO dto) {
-        try {
-            return ResponseEntity.ok(clienteService.reatribuir(id, dto));
-        } catch (Exception e) {
-            log.error("Erro no endpoint PATCH /api/clientes/{}/reatribuir: {}", id, e.getMessage());
-            throw e;
-        }
+        return ResponseEntity.ok(clienteService.reatribuir(id, dto));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Long id) {
-        try {
-            clienteService.deletar(id);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            log.error("Erro no endpoint DELETE /api/clientes/{}: {}", id, e.getMessage());
-            throw e;
-        }
+        clienteService.deletar(id);
+        return ResponseEntity.noContent().build();
     }
 }
